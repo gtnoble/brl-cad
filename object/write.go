@@ -9,15 +9,10 @@ import (
 
 const NULL_CHARACTER = "\x00"
 
-type DbObject struct {
-	dli             byte
-	majorType       byte
-	minorType       byte
-	compressionFlag byte
-	name            *string
-	attributes      map[string]string
-	body            []byte
-}
+const (
+	MAGIC_START = 0x76
+	MAGIC_END   = 0x35
+)
 
 func (db DbObject) makeHFlags() byte {
 	var flags uint8 = 0b11011000
@@ -45,11 +40,11 @@ func (db DbObject) makeABFlags(hasContent bool) byte {
 	return flags
 }
 
-func makeAttributes(attributes map[string]string) string {
-	attributesAlternated := make([]string, len(attributes)*2+1)
-	attributesAlternated[len(attributesAlternated)-1] = NULL_CHARACTER
+func (db DbObject) serializeAttributes() string {
+	attributesAlternated := make([]string, len(db.attributes)*2+1)
+	attributesAlternated[len(attributesAlternated)-1] = ""
 	var i int
-	for key, value := range attributes {
+	for key, value := range db.attributes {
 		attributesAlternated[i] = key
 		attributesAlternated[i+1] = value
 		i += 2
@@ -59,20 +54,21 @@ func makeAttributes(attributes map[string]string) string {
 }
 
 func writeLength(w io.Writer, length int) (int, error) {
-	err := binary.Write(w, binary.BigEndian, int64(length))
+	err := binary.Write(w, binary.BigEndian, uint64(length))
 	return 8, err
 }
 
 func writeDbString(w io.Writer, str string) (int, error) {
 
+	nullTermStr := fmt.Sprintf("%s\x00", str)
 	var writeCount int
-	if n, err := writeLength(w, len(str)); err != nil {
+	if n, err := writeLength(w, len(nullTermStr)); err != nil {
 		return writeCount, err
 	} else {
 		writeCount += n
 	}
 
-	if n, err := fmt.Fprintf(w, "%s\x00", str); err != nil {
+	if n, err := w.Write([]byte(nullTermStr)); err != nil {
 		return writeCount, err
 	} else {
 		writeCount += n
@@ -83,6 +79,12 @@ func writeDbString(w io.Writer, str string) (int, error) {
 func (db DbObject) Write(w io.Writer) (int, error) {
 
 	var writeCount int
+
+	n, err := w.Write([]byte{MAGIC_START})
+	writeCount += n
+	if err != nil {
+		return writeCount, err
+	}
 
 	for _, makeFlags := range []func() byte{db.makeHFlags, db.makeAFlags, db.makeBFlags} {
 		n, err := w.Write([]byte{makeFlags()})
@@ -101,7 +103,7 @@ func (db DbObject) Write(w io.Writer) (int, error) {
 	}
 
 	if db.attributes != nil {
-		n, err := writeDbString(w, makeAttributes(db.attributes))
+		n, err := writeDbString(w, db.serializeAttributes())
 		writeCount += n
 		if err != nil {
 			return writeCount, err
@@ -120,6 +122,12 @@ func (db DbObject) Write(w io.Writer) (int, error) {
 		if err != nil {
 			return writeCount, err
 		}
+	}
+
+	n, err = w.Write([]byte{MAGIC_END})
+	writeCount += n
+	if err != nil {
+		return writeCount, err
 	}
 
 	return writeCount, nil
