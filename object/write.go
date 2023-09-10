@@ -53,7 +53,76 @@ func (db DbObject) serializeAttributes() string {
 	return strings.Join(attributesAlternated, NULL_CHARACTER)
 }
 
-func writeLength(w io.Writer, length int) (int, error) {
+func (db DbObject) Write(w io.Writer) (int, error) {
+	objectLength, _ := db.tryWrite(io.Discard, 0)
+	return db.tryWrite(w, objectLength)
+}
+
+func (db DbObject) tryWrite(w io.Writer, objectLength int) (int, error) {
+
+	type writeOp struct {
+		condition bool
+		operation func() (int, error)
+	}
+
+	var writeCount int
+	writeOperations := []writeOp{
+		{
+			true,
+			func() (int, error) {
+				return w.Write([]byte{MAGIC_START, db.makeHFlags(), db.makeAFlags(), db.makeBFlags(), db.majorType, db.minorType})
+			},
+		},
+		{
+			true,
+			func() (int, error) { return writeInt(w, objectLength/8) },
+		},
+		{
+			db.name != nil,
+			func() (int, error) { return writeDbString(w, *db.name) },
+		},
+		{
+			db.attributes != nil,
+			func() (int, error) { return writeDbString(w, db.serializeAttributes()) },
+		},
+		{
+			db.body != nil,
+			func() (int, error) { return writeInt(w, len(db.body)) },
+		},
+		{
+			db.body != nil,
+			func() (int, error) { return w.Write(db.body) },
+		},
+		{
+			true,
+			func() (int, error) {
+				unpaddedFinalLength := writeCount + 1
+				fmt.Printf("unpadded final length: %v\n", unpaddedFinalLength)
+				paddingNeeded := 8 % (unpaddedFinalLength % 8)
+				fmt.Printf("padding needed: %v\n", paddingNeeded)
+				return w.Write(make([]byte, paddingNeeded))
+			},
+		},
+		{
+			true,
+			func() (int, error) { return w.Write([]byte{MAGIC_END}) },
+		},
+	}
+
+	for _, operation := range writeOperations {
+		if operation.condition {
+			n, err := operation.operation()
+			writeCount += n
+			if err != nil {
+				return writeCount, err
+			}
+		}
+	}
+
+	return writeCount, nil
+}
+
+func writeInt(w io.Writer, length int) (int, error) {
 	err := binary.Write(w, binary.BigEndian, uint64(length))
 	return 8, err
 }
@@ -62,7 +131,7 @@ func writeDbString(w io.Writer, str string) (int, error) {
 
 	nullTermStr := fmt.Sprintf("%s\x00", str)
 	var writeCount int
-	if n, err := writeLength(w, len(nullTermStr)); err != nil {
+	if n, err := writeInt(w, len(nullTermStr)); err != nil {
 		return writeCount, err
 	} else {
 		writeCount += n
@@ -73,62 +142,5 @@ func writeDbString(w io.Writer, str string) (int, error) {
 	} else {
 		writeCount += n
 	}
-	return writeCount, nil
-}
-
-func (db DbObject) Write(w io.Writer) (int, error) {
-
-	var writeCount int
-
-	n, err := w.Write([]byte{MAGIC_START})
-	writeCount += n
-	if err != nil {
-		return writeCount, err
-	}
-
-	for _, makeFlags := range []func() byte{db.makeHFlags, db.makeAFlags, db.makeBFlags} {
-		n, err := w.Write([]byte{makeFlags()})
-		writeCount += n
-		if err != nil {
-			return writeCount, err
-		}
-	}
-
-	if db.name != nil {
-		n, err := writeDbString(w, *db.name)
-		writeCount += n
-		if err != nil {
-			return writeCount, err
-		}
-	}
-
-	if db.attributes != nil {
-		n, err := writeDbString(w, db.serializeAttributes())
-		writeCount += n
-		if err != nil {
-			return writeCount, err
-		}
-	}
-
-	if db.body != nil {
-		n, err := writeLength(w, len(db.body))
-		writeCount += n
-		if err != nil {
-			return writeCount, err
-		}
-
-		n, err = w.Write(db.body)
-		writeCount += n
-		if err != nil {
-			return writeCount, err
-		}
-	}
-
-	n, err = w.Write([]byte{MAGIC_END})
-	writeCount += n
-	if err != nil {
-		return writeCount, err
-	}
-
 	return writeCount, nil
 }
