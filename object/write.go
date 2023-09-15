@@ -19,7 +19,10 @@ func (db DbObject) makeHFlags() byte {
 	if db.name != nil {
 		flags = flags | 0x1<<5
 	}
-	flags = flags | db.dli
+	flags |= db.dli
+	if db.isHidden {
+		flags |= HIDDEN_OBJECT_FLAG
+	}
 	return flags
 }
 
@@ -97,9 +100,7 @@ func (db DbObject) tryWrite(w io.Writer, objectLength int) (int, error) {
 			true,
 			func() (int, error) {
 				unpaddedFinalLength := writeCount + 1
-				fmt.Printf("unpadded final length: %v\n", unpaddedFinalLength)
 				paddingNeeded := 8 % (unpaddedFinalLength % 8)
-				fmt.Printf("padding needed: %v\n", paddingNeeded)
 				return w.Write(make([]byte, paddingNeeded))
 			},
 		},
