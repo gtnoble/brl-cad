@@ -100,7 +100,7 @@ func (db DbObject) tryWrite(w io.Writer, objectLength int) (int, error) {
 			true,
 			func() (int, error) {
 				unpaddedFinalLength := writeCount + 1
-				paddingNeeded := 8 % (unpaddedFinalLength % 8)
+				paddingNeeded := 8 - (unpaddedFinalLength % 8)
 				return w.Write(make([]byte, paddingNeeded))
 			},
 		},

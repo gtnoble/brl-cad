@@ -36,3 +36,14 @@ func TestSerializeVector(t *testing.T) {
 	}
 
 }
+
+func TestSerializeSphere(t *testing.T) {
+	testSphere := Sphere{Vertex: Vector3D{0, 0, 0}, Radius: 0}
+	serializedSphere := testSphere.serialize()
+
+	actualLength := len(serializedSphere)
+	expectedLength := 32
+	if actualLength != expectedLength {
+		t.Fatalf("Serialized sphere has unexpected length %v. expected %v. serialized bytes: % x", actualLength, expectedLength, serializedSphere)
+	}
+}
