@@ -1,7 +1,6 @@
 package db
 
 import (
-	geometry "brl-cad/geometery"
 	"brl-cad/object"
 	"os"
 	"os/exec"
@@ -20,8 +19,7 @@ func TestWriteGFile(t *testing.T) {
 		t.Fatalf("Could not create file: %s, details: %v", TEST_FILE_NAME, err)
 	}
 
-	radius := geometry.Vector3D{0, 0, 1}
-	sphere := geometry.Ellipsoid{Vertex: geometry.Vector3D{0, 0, 0}, RadiusA: radius, RadiusB: radius, RadiusC: radius}.Object("sphere.s")
+	sphere := object.Sphere(object.Vector3D{0, 0, 0}, 1)
 	dataObjects := []object.DbObject{sphere}
 	if _, err := writeDb(file, "test", 1.0, dataObjects...); err != nil {
 		t.Fatalf("Could not write data to database file. details: %v", err)

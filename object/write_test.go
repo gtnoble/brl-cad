@@ -25,9 +25,9 @@ func TestMakeFlags(t *testing.T) {
 
 	name := "test"
 	testObj := DbObject{
-		name:       &name,
+		Name:       &name,
 		attributes: map[string]string{"key": "value"},
-		body:       []byte{0},
+		body:       func() []byte { return []byte{0} },
 	}
 
 	t.Run("Testing HFlag with name", func(t *testing.T) {

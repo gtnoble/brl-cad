@@ -1,4 +1,4 @@
-package geometry
+package object
 
 import (
 	"testing"
@@ -38,11 +38,11 @@ func TestSerializeVector(t *testing.T) {
 }
 
 func TestSerializeSphere(t *testing.T) {
-	testSphere := Sphere{Vertex: Vector3D{0, 0, 0}, Radius: 0}
-	serializedSphere := testSphere.serialize()
+	testSphere := Sphere(Vector3D{0, 0, 0}, 0)
+	serializedSphere := testSphere.body()
 
 	actualLength := len(serializedSphere)
-	expectedLength := 32
+	expectedLength := 96
 	if actualLength != expectedLength {
 		t.Fatalf("Serialized sphere has unexpected length %v. expected %v. serialized bytes: % x", actualLength, expectedLength, serializedSphere)
 	}

@@ -10,7 +10,7 @@ const dbFileHeader = "\x76\x01\x00\x00\x00\x00\x01\x35"
 func writeDb(w io.Writer, title string, unitConversion float64, dataObjects ...object.DbObject) (int, error) {
 	var bytesWritten int
 
-	globalObject := object.MakeGlobal(title, unitConversion)
+	globalObject := object.GlobalObject(title, unitConversion)
 	dataObjects = append([]object.DbObject{globalObject}, dataObjects...)
 
 	n, err := w.Write([]byte(dbFileHeader))

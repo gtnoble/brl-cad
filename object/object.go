@@ -1,6 +1,10 @@
 package object
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 // DLI Flags
 const (
@@ -88,33 +92,48 @@ const BIT_WID_FLAG_64 = 0b11
 
 type DbObject struct {
 	dli             byte
-	isHidden        bool
 	majorType       byte
 	minorType       byte
+	isHidden        bool
 	compressionFlag byte
-	name            *string
 	attributes      map[string]string
-	body            []byte
+	Name            *string
+	body            func() []byte
 }
 
-func MakeGeometry(name string, primativeType byte, body []byte) DbObject {
-	return DbObject{
-		dli:       APPLICATION_DATA_OBJECT_FLAG,
-		majorType: BRL_CAD_OBJECT,
-		minorType: primativeType,
-		name:      &name,
-		body:      body,
+func (db *DbObject) node() *combinationNode {
+	return &combinationNode{
+		OPERAND,
+		nil,
+		nil,
+		db,
 	}
 }
 
-func MakeGlobal(title string, unitConversion float64) DbObject {
+func generateName(prefix string) string {
+	uniqueId := uuid.New().String()
+	return fmt.Sprintf("%s-%s", prefix, uniqueId)
+}
+
+func BrlCadObject(baseName string, minorType byte, attributes map[string]string, body func() []byte) DbObject {
+	name := generateName(baseName)
+	return DbObject{
+		majorType:  BRL_CAD_OBJECT,
+		minorType:  minorType,
+		attributes: attributes,
+		Name:       &name,
+		body:       body,
+	}
+}
+
+func GlobalObject(title string, unitConversion float64) DbObject {
 	globalObjectName := GLOBAL_OBJECT_NAME
 	return DbObject{
 		dli:       APPLICATION_DATA_OBJECT_FLAG,
 		isHidden:  true,
 		majorType: ATTRIBUTE_ONLY_OBJECT,
 		minorType: RESERVED,
-		name:      &globalObjectName,
+		Name:      &globalObjectName,
 		attributes: map[string]string{
 			"title": title,
 			"units": fmt.Sprintf("%E", unitConversion),

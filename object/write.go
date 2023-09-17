@@ -16,7 +16,7 @@ const (
 
 func (db DbObject) makeHFlags() byte {
 	var flags uint8 = 0b11011000
-	if db.name != nil {
+	if db.Name != nil {
 		flags = flags | 0x1<<5
 	}
 	flags |= db.dli
@@ -68,6 +68,10 @@ func (db DbObject) tryWrite(w io.Writer, objectLength int) (int, error) {
 		operation func() (int, error)
 	}
 
+	var body []byte
+	if db.body != nil {
+		body = db.body()
+	}
 	var writeCount int
 	writeOperations := []writeOp{
 		{
@@ -81,20 +85,20 @@ func (db DbObject) tryWrite(w io.Writer, objectLength int) (int, error) {
 			func() (int, error) { return writeInt(w, objectLength/8) },
 		},
 		{
-			db.name != nil,
-			func() (int, error) { return writeDbString(w, *db.name) },
+			db.Name != nil,
+			func() (int, error) { return writeDbString(w, *db.Name) },
 		},
 		{
 			db.attributes != nil,
 			func() (int, error) { return writeDbString(w, db.serializeAttributes()) },
 		},
 		{
-			db.body != nil,
-			func() (int, error) { return writeInt(w, len(db.body)) },
+			body != nil,
+			func() (int, error) { return writeInt(w, len(body)) },
 		},
 		{
-			db.body != nil,
-			func() (int, error) { return w.Write(db.body) },
+			body != nil,
+			func() (int, error) { return w.Write(body) },
 		},
 		{
 			true,
